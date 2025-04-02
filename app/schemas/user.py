@@ -2,14 +2,25 @@ from pydantic import BaseModel, EmailStr
 
 
 class UserBase(BaseModel):
-    email: EmailStr
+    username: str 
+    password: str 
 
-class UserCreate(UserBase):
-    password: str
+
+class UserIn(UserBase):
+    pass
 
 class UserOut(UserBase):
-    id: int
-    is_active: bool
+    id: str
+    username: str
+    password: str
+    MSSV: str
+    lastname:str
+    firstname:str
+    email: EmailStr
+    isUser: bool = True
+    isAdmin: bool = False
+    isActive: bool = True
+
 
 class Token(BaseModel):
     access_token: str

@@ -9,4 +9,4 @@ app.include_router(auth_router, prefix=f"{API_V1_STR}/auth", tags=["auth"])
 
 @app.get("/")
 def on_startup():
-    SQLModel.metadata.create_all(DATABASE_URL)
+    return {"message": "Welcome to the Fast API"}
