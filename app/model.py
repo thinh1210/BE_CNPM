@@ -4,34 +4,36 @@ from datetime import datetime, date, time
 from uuid import uuid4
 
 # ======================= 1️⃣ User =======================
-class User(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+class User(SQLModel, table=True, extend_existing=True):
+    id: int = Field(default=None, primary_key=True)
     username: str
     password: str
     email: str
-    MSSV: str
+    MSSV: int | None
     lastname: str
     firstname: str
     isUser: bool = True
     isAdmin: bool = False
     isActive: Optional[bool] = True
 
-    # Quan hệ với OrderRoom và UsedRoom
+    # Quan hệ với OrderRoom, UsedRoom, CancelRoom, và Report
     orders: List["OrderRoom"] = Relationship(back_populates="user")
     used_rooms: List["UsedRoom"] = Relationship(back_populates="user")
+    cancellations: List["CancelRoom"] = Relationship(back_populates="user")
+    reports: List["Report"] = Relationship(back_populates="user")
 
 
 # ======================= 2️⃣ Branch =======================
 class Branch(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    id: int = Field(default=None, primary_key=True)
     branch_name: str
     buildings: List["Building"] = Relationship(back_populates="branch")
-    rooms: List["Room"] = Relationship(back_populates="branch")
+
 
 # ======================= 3️⃣ Building =======================
 class Building(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    branch_id: str = Field(foreign_key="branch.id")
+    id: int = Field(default=None, primary_key=True)
+    branch_id: int = Field(foreign_key="branch.id")
     building_name: str
 
     branch: Optional[Branch] = Relationship(back_populates="buildings")
@@ -40,8 +42,8 @@ class Building(SQLModel, table=True):
 
 # ======================= 4️⃣ RoomType =======================
 class RoomType(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    type_name: str  # (lib, meeting room, study room, etc.)
+    id: int = Field(default=None, primary_key=True)
+    type_name: str
     max_capacity: int
 
     rooms: List["Room"] = Relationship(back_populates="room_type")
@@ -49,10 +51,10 @@ class RoomType(SQLModel, table=True):
 
 # ======================= 5️⃣ Room =======================
 class Room(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    branch_id: str = Field(foreign_key="branch.id")
-    building_id: str = Field(foreign_key="building.id")
-    type_id: str = Field(foreign_key="roomtype.id")
+    id: int = Field(default=None, primary_key=True)
+    branch_id: int = Field(foreign_key="branch.id")
+    building_id: int = Field(foreign_key="building.id")
+    type_id: int = Field(foreign_key="roomtype.id")
 
     floor: int
     no_room: str
@@ -66,8 +68,7 @@ class Room(SQLModel, table=True):
     online_meeting_devices: bool = False
     active: bool = True
 
-    # Quan hệ
-    branch: Optional[Branch] = Relationship(back_populates="rooms")
+    branch: Optional[Branch] = Relationship()  # Xóa back_populates="rooms"
     building: Optional[Building] = Relationship(back_populates="rooms")
     room_type: Optional[RoomType] = Relationship(back_populates="rooms")
     orders: List["OrderRoom"] = Relationship(back_populates="room")
@@ -76,13 +77,13 @@ class Room(SQLModel, table=True):
 
 # ======================= 6️⃣ OrderRoom (Đặt phòng) =======================
 class OrderRoom(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    room_id: str = Field(foreign_key="room.id")
-    user_id: str = Field(foreign_key="user.id")
+    id: int = Field(default=None, primary_key=True)
+    room_id: int = Field(foreign_key="room.id")
+    user_id: int = Field(foreign_key="user.id")
 
-    date: date  # Chỉ lưu ngày
-    begin: time  # Chỉ lưu giờ bắt đầu
-    end: time  # Chỉ lưu giờ kết thúc
+    date: date
+    begin: time
+    end: time
 
     room: Optional[Room] = Relationship(back_populates="orders")
     user: Optional[User] = Relationship(back_populates="orders")
@@ -92,24 +93,26 @@ class OrderRoom(SQLModel, table=True):
 
 # ======================= 7️⃣ CancelRoom (Hủy đặt phòng) =======================
 class CancelRoom(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    order_id: str = Field(foreign_key="orderroom.id")
+    id: int = Field(default=None, primary_key=True)
+    order_id: int = Field(foreign_key="orderroom.id")
+    user_id: int = Field(foreign_key="user.id")
 
-    date_cancel: date  # Chỉ lưu ngày hủy
+    date_cancel: date
 
     order: Optional[OrderRoom] = Relationship(back_populates="cancel")
+    user: Optional[User] = Relationship(back_populates="cancellations")
 
 
 # ======================= 8️⃣ UsedRoom (Phòng đã sử dụng) =======================
 class UsedRoom(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    order_id: str = Field(foreign_key="orderroom.id")
-    user_id: str = Field(foreign_key="user.id")
-    room_id: str = Field(foreign_key="room.id")
+    id: int = Field(default=None, primary_key=True)
+    order_id: int = Field(foreign_key="orderroom.id")
+    user_id: int = Field(foreign_key="user.id")
+    room_id: int = Field(foreign_key="room.id")
 
-    date: date  # Chỉ lưu ngày
-    checkin: time  # Chỉ lưu giờ check-in
-    checkout: time  # Chỉ lưu giờ check-out
+    date: date
+    checkin: time
+    checkout: time
 
     order: Optional[OrderRoom] = Relationship(back_populates="used_rooms")
     user: Optional[User] = Relationship(back_populates="used_rooms")
@@ -119,8 +122,9 @@ class UsedRoom(SQLModel, table=True):
 
 # ======================= 9️⃣ Report (Báo cáo sự cố) =======================
 class Report(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    used_room_id: str = Field(foreign_key="usedroom.id")
+    id: int = Field(default=None, primary_key=True)
+    used_room_id: int = Field(foreign_key="usedroom.id")
+    user_id: int = Field(foreign_key="user.id")
 
     led: bool = False
     air_conditioner: bool = False
@@ -131,3 +135,4 @@ class Report(SQLModel, table=True):
     description: Optional[str] = None
 
     used_room: Optional[UsedRoom] = Relationship(back_populates="report")
+    user: Optional[User] = Relationship(back_populates="reports")

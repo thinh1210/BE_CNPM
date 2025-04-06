@@ -1,13 +1,20 @@
 import jwt
+from fastapi import HTTPException, status
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
-from .config import SECRET_KEY
-
+from .config import SECRET_KEY, ADMIN_SECRET_KEY
+from typing import Dict
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+def verify_key(key: str) -> bool:
+    if key == ADMIN_SECRET_KEY:
+        return True
+    else:
+        return False
+    
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -21,20 +28,32 @@ def create_access_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-
-def decode_access_token(token: str):
-    # print(f"Decoding token: {token}")  # In ra token để debug
+def decode_access_token(token: str) -> Dict[str, any]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(payload)  # In ra payload để debug
-        username: str = payload.get("sub")  # Lấy thông tin từ 'sub'
-        print(f"Username: {username}")
-        if username is None:
-            raise jwt.InvalidTokenError("Token không có 'sub'")
-        return username
+        username: str | None = payload.get("sub")
+
+        print("token in decode: ",token)
+        data ={
+            "sub": username,
+            "isuser": payload.get("isuser"),
+            "isadmin": payload.get("isadmin"),
+            "isactive": payload.get("isactive")
+        }
+        print("data to return: ",data)
+        return data
+    
     except jwt.ExpiredSignatureError:
-        print("Token đã hết hạn!")
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     except jwt.InvalidTokenError as e:
-        print(f"Token không hợp lệ: {e}")
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
