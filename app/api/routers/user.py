@@ -10,10 +10,10 @@ from app.model import User
 from app.cores.security import create_access_token, verify_key
 
 router = APIRouter()
-router.include_router(
-    router=APIRouter(),
-    dependencies=Depends(isUser),
-)
+# router.include_router(
+#     router=APIRouter(),
+#     dependencies=Depends(isUser),
+# )
 
 @router.get("/me", response_model=UserOut_json)
 def read_users_me(current_user:CurrentUser ):
