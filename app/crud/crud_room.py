@@ -505,6 +505,14 @@ def delete_room_device(session: Session, room_id: int | None = None, room_name: 
     session.commit()
     return True
 # --- Room ---
+def check_library(session: Session, room_id: int) -> bool:
+    if not room_id:
+        raise HTTPException(status_code=400, detail="Room ID is required")
+    room = session.get(Room, room_id)
+    type_id = room.type_id
+    type= session.get(RoomType, type_id)
+    return type.type_name =="Library"
+
 def create_room(
     session: Session,
     room_name: str,
@@ -541,12 +549,18 @@ def create_room(
         raise HTTPException(status_code=404, detail=f"Building with ID {building_id} not found")
     if not session.get(RoomType, type_id):
         raise HTTPException(status_code=404, detail=f"RoomType with ID {type_id} not found")
+    
+    check_lib= session.get(RoomType,type_id)
+    if check_lib.type_name == "Library" and capacity == 0 :
+        raise HTTPException(status_code=400, detail="Library room must have a capacity greater than 0")
+    
+
     room = Room(
         no_room=room_name,
         branch_id=branch_id,
         building_id=building_id,
         type_id=type_id,
-        max_quantity=capacity,
+        max_quantity=capacity if capacity else 0,
         quantity=0,
     )
     session.add(room)
