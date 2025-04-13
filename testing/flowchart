@@ -1,0 +1,12 @@
+digraph {
+	A [label=Start]
+	B [label="Điều kiện?"]
+	C [label="Thực hiện A"]
+	D [label="Thực hiện B"]
+	E [label="Kết thúc"]
+	A -> B
+	B -> C [label="Có"]
+	B -> D [label="Không"]
+	C -> E
+	D -> E
+}

@@ -40,7 +40,6 @@ def filter_room(
     limitation: int = Query(10, ge=1, le=20, title="Limit", description="Limit of the number of rooms")
     ):
 
-
     # Current datetime
     now = datetime.now()
     # Create a date object for order date
@@ -109,3 +108,4 @@ def order_room(data: OrderIn, current_user: CurrentUser, session: SessionDep):
         "message": "Order room successfully",
         "data": order_room
     }
+

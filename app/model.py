@@ -30,7 +30,7 @@ class Branch(SQLModel, table=True):
 # ======================= 3️⃣ Building =======================
 class Building(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    branch_id: int = Field(foreign_key="branch.id")
+    branch_id: int = Field(foreign_key="branch.id", ondelete="CASCADE")
     building_name: str
 
     branch: Optional[Branch] = Relationship(back_populates="buildings")
@@ -40,18 +40,19 @@ class Building(SQLModel, table=True):
 class RoomType(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     type_name: str
-    max_capacity: int|None
+    max_capacity: int | None
+
 
     rooms: List["Room"] = Relationship(back_populates="room_type")
 
 # ======================= 5️⃣ Room (Thông tin cơ bản) =======================
 class Room(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    branch_id: int = Field(foreign_key="branch.id")
-    building_id: int = Field(foreign_key="building.id")
-    type_id: int = Field(foreign_key="roomtype.id")
+    branch_id: int = Field(foreign_key="branch.id", ondelete="CASCADE")
+    building_id: int = Field(foreign_key="building.id", ondelete="CASCADE")
+    type_id: int = Field(foreign_key="roomtype.id", ondelete="CASCADE")
     no_room: str
-    max_quantity: int|None
+    max_quantity: int | None
     quantity: int | None
     active: bool = True
 
@@ -65,7 +66,7 @@ class Room(SQLModel, table=True):
 # ======================= 6️⃣ RoomDevice (Thông tin thiết bị) =======================
 class RoomDevice(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    room_id: int = Field(foreign_key="room.id", unique=True)  # 1-1 với Room
+    room_id: int = Field(foreign_key="room.id", unique=True, ondelete="CASCADE")  # 1-1 với Room
 
     led: bool = False
     projector: bool = False
@@ -79,12 +80,15 @@ class RoomDevice(SQLModel, table=True):
 # ======================= 7️⃣ OrderRoom =======================
 class OrderRoom(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    room_id: int = Field(foreign_key="room.id")
-    user_id: int = Field(foreign_key="user.id")
+    room_id: int = Field(foreign_key="room.id", ondelete="CASCADE")
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
 
     date: date
     begin: time
     end: time
+    
+    is_used: bool = False
+    is_cancel: bool = False
 
     room: Optional[Room] = Relationship(back_populates="orders")
     user: Optional[User] = Relationship(back_populates="orders")
@@ -94,8 +98,8 @@ class OrderRoom(SQLModel, table=True):
 # ======================= 8️⃣ CancelRoom =======================
 class CancelRoom(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    order_id: int = Field(foreign_key="orderroom.id")
-    user_id: int = Field(foreign_key="user.id")
+    order_id: int = Field(foreign_key="orderroom.id", ondelete="CASCADE")
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
     date_cancel: datetime
 
     order: Optional[OrderRoom] = Relationship(back_populates="cancel")
@@ -104,9 +108,9 @@ class CancelRoom(SQLModel, table=True):
 # ======================= 9️⃣ UsedRoom =======================
 class UsedRoom(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    order_id: int = Field(foreign_key="orderroom.id")
-    user_id: int = Field(foreign_key="user.id")
-    room_id: int = Field(foreign_key="room.id")
+    order_id: int = Field(foreign_key="orderroom.id", ondelete="CASCADE")
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
+    room_id: int = Field(foreign_key="room.id", ondelete="CASCADE")
 
     date: date
     checkin: time
@@ -120,8 +124,8 @@ class UsedRoom(SQLModel, table=True):
 # ======================= 10️⃣ Report =======================
 class Report(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    used_room_id: int = Field(foreign_key="usedroom.id")
-    user_id: int = Field(foreign_key="user.id")
+    used_room_id: int = Field(foreign_key="usedroom.id", ondelete="CASCADE")
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
 
     led: bool = False
     air_conditioner: bool = False
@@ -133,3 +137,14 @@ class Report(SQLModel, table=True):
 
     used_room: Optional[UsedRoom] = Relationship(back_populates="report")
     user: Optional[User] = Relationship(back_populates="reports")
+
+class Notification(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
+    order_id: int = Field(foreign_key="orderroom.id", ondelete="CASCADE")
+    title: str
+    message: str
+    date: datetime = Field(default_factory=datetime.now)
+    is_read: bool = Field(default=False)
+
+    user: Optional[User] = Relationship(back_populates="notifications")
