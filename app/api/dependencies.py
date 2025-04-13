@@ -99,3 +99,22 @@ def check_active_user(token: str) -> bool:
     return data.get("isactive", False) & data.get("isuser", False) 
 
 is_activeuser = Annotated[bool, Depends(check_active_user)]
+
+def checkday(date:int) -> bool:
+    if date < 1 or date > 31:
+        raise HTTPException(status_code=400, detail="Invalid date")
+    return True
+
+def checkmonth(month:int) -> bool:
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=400, detail="Invalid month")
+    return True
+def checkyear(year:int) -> bool:
+    if year < 2023 or year > 2030:
+        raise HTTPException(status_code=400, detail="Invalid year")
+    return True
+
+def checkhours(hours:int) -> bool:
+    if hours < 0 or hours > 23:
+        raise HTTPException(status_code=400, detail="Invalid hours")
+    return True

@@ -16,13 +16,31 @@ class OrderIn(BaseModel):
 class CancelIn(BaseModel):
     order_id: int
 
-class CheckIn(BaseModel):
+class CheckIn1(BaseModel):
+    room_id: int
+
+class CheckOut1(BaseModel):
+    room_id: int
+
+class CheckIn2(BaseModel):
+    order_id: int
+class CheckOut2(BaseModel):
     order_id: int
 
-class CheckOut(BaseModel):
+class changetime(BaseModel):
     order_id: int
+    date: int
+    month: int
+    year: int
+    start_time: int
+    end_time: int
+
+class OrderRoomOut(BaseModel):
+    order: OrderRoom
+    cancel: CancelRoom|None
+    used: UsedRoom|None
 
 
 class responseorder(BaseModel):
-    message: str
-    data: Room|OrderRoom|CancelRoom|UsedRoom|List[Room]|List[OrderRoom]|List[CancelRoom]|List[UsedRoom]|None = None
+    msg: str
+    data: OrderRoomOut|Room|OrderRoom|CancelRoom|UsedRoom|List[Room]|List[OrderRoom]|List[CancelRoom]|List[UsedRoom]|List[OrderRoomOut]|None = None

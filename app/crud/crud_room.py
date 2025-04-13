@@ -505,6 +505,7 @@ def delete_room_device(session: Session, room_id: int | None = None, room_name: 
     session.commit()
     return True
 # --- Room ---
+
 def check_library(session: Session, room_id: int) -> bool:
     if not room_id:
         raise HTTPException(status_code=400, detail="Room ID is required")
@@ -547,11 +548,12 @@ def create_room(
         raise HTTPException(status_code=404, detail=f"Branch with ID {branch_id} not found")
     if not session.get(Building, building_id):
         raise HTTPException(status_code=404, detail=f"Building with ID {building_id} not found")
-    if not session.get(RoomType, type_id):
+    
+    type_of_room= session.get(RoomType,type_id)
+    if not type_of_room:
         raise HTTPException(status_code=404, detail=f"RoomType with ID {type_id} not found")
     
-    check_lib= session.get(RoomType,type_id)
-    if check_lib.type_name == "Library" and capacity == 0 :
+    if type_of_room.type_name == "Library" and capacity == 0 :
         raise HTTPException(status_code=400, detail="Library room must have a capacity greater than 0")
     
 
@@ -664,6 +666,50 @@ def delete_room(session: Session, room_id: int) -> bool:
     session.commit()
     return True
 
+def check_library(session: Session, room_id: int) -> bool:
+    """
+    Check if the room with the given ID is a library.
+    
+    Args:
+        session (Session): The database session.
+        room_id (int): The ID of the room to check.
+    
+    Returns:
+        bool: True if the room is a library, False otherwise.
+    
+    Raises:
+        HTTPException: If the room ID is not provided or the room is not found.
+    """
+    if not room_id:
+        raise HTTPException(status_code=400, detail="Room ID is required")
+    room = session.get(Room, room_id)
+    type_id = room.type_id
+    type= session.get(RoomType, type_id)
+    return type.type_name =="Library"
+
+def check_lib_available(session: Session, room_id: int) -> bool:
+    """
+    Check if the library room with the given ID is available.
+    
+    Args:
+        session (Session): The database session.
+        room_id (int): The ID of the room to check.
+    
+    Returns:
+        bool: True if the room is available, False otherwise.
+    
+    Raises:
+        HTTPException: If the room ID is not provided or the room is not found.
+    """
+    if not room_id:
+        raise HTTPException(status_code=400, detail="Room ID is required")
+    room = session.get(Room, room_id)
+    type_id = room.type_id
+    type= session.get(RoomType, type_id)
+    
+    return type.type_name =="Library" and room.quantity <room.max_quantity
+
+
 def filter_rooms(
     session: Session,
     branch_id: Optional[int] = None,
@@ -718,6 +764,9 @@ def filter_rooms(
         if not room_type:
             raise HTTPException(status_code=404, detail="RoomType not found")
         query = query.where(Room.type_id == room_type.id)
+    
+    query = query.where(Room.active == True)  # Only active rooms
+
     if limit == 0:
         rooms = session.exec(query).all()
     else:
