@@ -14,7 +14,7 @@ router = APIRouter()
 # @router.get("/me", response_model=UserOut_json)
 # def read_users_me(current_user:CurrentUser ):
 #     return{
-#         "message": "Get user successfully",
+#         "message": "Get user successfu ly",
 #         "data": current_user
 #     }
 
@@ -55,9 +55,9 @@ def register(data: Register_In, session: SessionDep):
             "message": "User already exists",
             "data": None
         }
-    # db_user = register_user(session, data)
-    # if not db_user:
-    #     raise HTTPException(status_code=400, detail="Incorrect username or password")
+    db_user = register_user(session, data)
+    if not db_user:
+        raise HTTPException(status_code=400, detail="register failed")
     
     return {
         "message": "Register successfully",

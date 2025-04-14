@@ -3,13 +3,18 @@ from sqlmodel import Session
 from app.schemas.user import  UserOut_json 
 from app.api.dependencies import SessionDep,get_current_user,CurrentUser,checkyear,checkmonth,checkday,checkhours
 from app.schemas.user import  UserOut_json
-from app.schemas.order import OrderIn, CancelIn, CheckIn, responseorder, changetime
+from app.schemas.order import OrderIn, CancelIn,  responseorder, changetime,CheckIn1,CheckOut1,CheckIn2,CheckOut2
 from app.model import User, OrderRoom, CancelRoom, UsedRoom, Room, Branch, Building, RoomType
 from app.cores.security import create_access_token, verify_key
 from datetime import datetime, date, time,timedelta
+
+from app.crud.crud_user import change_user_info, change_user_pasword
 from app.crud.crud_order import create_cancel_room, create_used_room, get_order_room, create_order_room,check_room_availability,get_all_order_rooms,update_order_room, update_state_order_room
-from app.crud.crud_order import  update_used_room,check_overlapping_time_of_room_by_user
-from app.crud.crud_room import filter_rooms
+from app.crud.crud_order import  update_used_room,check_overlapping_time_of_room_by_user, find_order_for_checkin,create_used_room, get_used_room_being_used_by_user_id, update_used_room, get_order_room,get_used_room_by_order_id
+
+from app.crud.crud_room import filter_rooms, check_lib_available,get_room_type
+from app.crud.crud_order import checkin_library, checkout_library,get_cancel_room,get_order_room, get_used_room, get_cancel_room_by_user_id,get_cancel_room_by_order_id, get_used_room_being_used_by_user_id, get_used_room_by_order_id, get_used_room_by_user_id
+
 
 
 router = APIRouter()
@@ -21,9 +26,10 @@ router = APIRouter()
 @router.get("/me", response_model=UserOut_json)
 def read_users_me(current_user:CurrentUser ):
     return{
-        "message": "Get user successfully",
+        "msg": "Get user successfully",
         "data": current_user
     }
+
 
 #---- search room ----
 @router.get("/searchroom", response_model=responseorder)
@@ -78,16 +84,38 @@ def filter_room(
     if not available_rooms:
         raise HTTPException(status_code=404, detail="No available rooms found")
     return {
-        "message": "Search room successfully",
+        "msg": "Search room successfully",
         "data": available_rooms
     }
     
+@router.get("/searchlibrary", response_model=responseorder)
+def search_library(
+    session: SessionDep,
+    building_id: int = Query(...,ge=0, title="Building ID", description="ID of the building"),
+    branch_id: int = Query(..., ge=0, title="Branch ID", description="ID of the branch"),
+):
+    '''
+    Search all library room in branch and building
+    '''
+    type_id = get_room_type(session,room_type="Library")
+
+    rooms= filter_rooms(session, branch_id=branch_id, building_id=building_id, type_id=type_id.id)
+    if not rooms:
+        raise HTTPException(status_code=404, detail="No library found")
     
+
+    return {
+        "msg": "Search library successfully",
+        "data": rooms
+    }
+
+
 #---- order room ----
 @router.post("/orderroom", response_model=responseorder)
 def order_room(data: OrderIn, current_user: CurrentUser, session: SessionDep):
     user = current_user
     #check time is available orr not
+
     checkyear(data.year)
     checkmonth(data.month)
     checkday(data.date)
@@ -111,6 +139,9 @@ def order_room(data: OrderIn, current_user: CurrentUser, session: SessionDep):
         raise HTTPException(status_code=404, detail="Room is not available")
 
 
+    check_user = check_overlapping_time_of_room_by_user(session, user.id, data.room_id, date(data.year,data.month, data.date), time(data.start_time), time(data.end_time))
+    if check_user:
+        raise HTTPException(status_code=404, detail="You have already booked this room at this time")
     
     order_room = create_order_room( session, 
                                    room_id=data.room_id,
@@ -121,13 +152,17 @@ def order_room(data: OrderIn, current_user: CurrentUser, session: SessionDep):
     
 
     return{
-        "message": "Order room successfully",
+        "msg": "Order room successfully",
         "data": order_room
     }
 
 
 @router.put("/orderroom/{order_id}", response_model=responseorder)
 def change_order(data: changetime, current_user: CurrentUser, session: SessionDep):
+
+    ''' 
+    Just change time of order room, not change room_id
+    '''
     user = current_user
 
     #check time is available orr not
@@ -148,10 +183,15 @@ def change_order(data: changetime, current_user: CurrentUser, session: SessionDe
     if time_start-now < timedelta(minutes=50):
         raise HTTPException(status_code=400, detail="You can only order a room 50 minutes in advance")
         
-       #check room is available or not
-    check = check_room_availability(session, data.room_id, date(data.year,data.month, data.date), time(data.start_time), time(data.end_time))
-    if not check:
+    #check room is available or not
+    check_room = check_room_availability(session, data.room_id, date(data.year,data.month, data.date), time(data.start_time), time(data.end_time))
+    if not check_room:
         raise HTTPException(status_code=404, detail="Room is not available")
+
+
+    check_user = check_overlapping_time_of_room_by_user(session, user.id, data.room_id, date(data.year,data.month, data.date), time(data.start_time), time(data.end_time))
+    if check_user:
+        raise HTTPException(status_code=404, detail="You have already booked this room at this time")
     
     order= update_order_room(session=session,
                              order_id=data.order_id, 
@@ -162,7 +202,7 @@ def change_order(data: changetime, current_user: CurrentUser, session: SessionDe
     if not order:
         raise HTTPException(status_code=404, detail="Cannot change order")
     return{
-        "message": "Change order successfully",
+        "msg": "Change order successfully",
         "data": order
     }
 
@@ -202,36 +242,179 @@ def cancel_room(data: CancelIn, current_user: CurrentUser, session: SessionDep):
     if not update_state_order_room(session, order_id=data.order_id, iscancel=True):
         raise HTTPException(status_code=404, detail="Cannot cancel order")
     return{
-        "message": "Cancel room successfully",
+        "msg": "Cancel room successfully",
         "data": cancel
     }
 
-@router.post("/checkin", response_model=responseorder)
-def check_in():
-    pass
 
 
-@router.post("/checkout", response_model=responseorder)
-def checkout():
-    pass
+@router.post("/checkin1", response_model=responseorder)
+def check_in1(session: SessionDep, current_user: CurrentUser, data: CheckIn1):
+    user= current_user
+    order= find_order_for_checkin(session, data.room_id, user.id)
+    if not order:
+        raise HTTPException(status_code=404, detail="You check in too early| you have not ordered this room| You have checked in this room")
+    
+    used_room= create_used_room(session, order_id=order.id, user_id=user.id, date_checkin=datetime.now().time())
+
+    if not used_room:
+        raise HTTPException(status_code=404, detail="Cannot check in")
+    if not update_state_order_room(session, order_id=order.id, isused=True):
+        raise HTTPException(status_code=404, detail="Cannot check in")
+    
+    return{
+        "msg": "Check in successfully",
+        "data": used_room
+    }
+
+@router.post("/checkout1", response_model=responseorder)
+def check_out1(session: SessionDep, current_user: CurrentUser, data: CheckOut1):
+    user= current_user
+    used_order= get_used_room_being_used_by_user_id(session, user.id)
+
+    if used_order.room_id != data.room_id:
+        raise HTTPException(status_code=404, detail="You check out wrong room")
+    
+    used_order= update_used_room(session, used_order.id, user.id, datetime.now().time())
+   
+    return {
+        "msg": "Check out successfully",
+        "data": used_order
+    }
+    
+
+
+@router.post("/checkin2", response_model=responseorder)
+def check_in2( current_user: CurrentUser,
+              session: SessionDep,
+              data: CheckIn2):
+  
+    user = current_user
+    if not data.order_id:
+       raise HTTPException(status_code=404, detail="Please enter order_id")
+    order = get_order_room(session, data.order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Cannot find order")
+    if order.is_used:
+        raise HTTPException(status_code=404, detail="You have already checked in this room")
+    if order.is_cancel:
+        raise HTTPException(status_code=404, detail="You have already canceled this order")
+    
+    used_order= create_order_room(session, order_id=data.order_id, user_id=user.id, date_checkin=datetime.now().time())
+    
+    if not used_order:
+        raise HTTPException(status_code=404, detail="Cannot check in")
+    if not update_state_order_room(session, order_id=data.order_id, isused=True):
+        raise HTTPException(status_code=404, detail="Cannot check in")
+    
+    return {
+        "msg": "Check in successfully",
+        "data": used_order
+    }
+
+
+@router.post("/checkout2", response_model=responseorder)
+def check_out2(current_user: CurrentUser,
+              session: SessionDep,
+              data: CheckOut2):
+    user = current_user
+    if not data.order_id:
+       raise HTTPException(status_code=404, detail="Please enter order_id")
+    used_room =update_used_room(session, used_room_id=data.order_id, user_id=user.id, checkout=datetime.now().time())
+    if not used_room:
+        raise HTTPException(status_code=404, detail="Cannot check out")
+    if not update_state_order_room(session, order_id=data.order_id, isused=False):
+        raise HTTPException(status_code=404, detail="Cannot check out")
+    return {
+        "msg": "Check out successfully",
+        "data": used_room
+    }
+
+
+@router.post("/checkinlibrary", response_model=responseorder)
+def checkinlibrary(session: SessionDep, data: CheckIn1):    
+    if  not checkin_library(session, data.room_id):
+        raise HTTPException(status_code=404, detail="Cannot check in library")
+    return {
+        "msg": "Check in library successfully",
+        "data": None
+    }
+
+
+@router.post("/checkoutlibrary", response_model=responseorder)
+def checkoutlibrary(session: SessionDep, data: CheckOut1):
+    if not checkout_library(session, data.room_id):
+        raise HTTPException(status_code=404, detail="Cannot check out library")
+    return {
+        "msg": "Check out library successfully",
+        "data": None
+    }
+    
+
+
 
 @router.get("/getallorder", response_model=responseorder)
-def get_all_order(
+def get_all_order_of_user(current_user: CurrentUser, session: SessionDep):
+    user = current_user
+    orders = get_all_order_rooms(session, user.id)
+    if not orders:
+        raise HTTPException(status_code=404, detail="Cannot find order")
+    return {
+        "msg": "Get all order successfully",
+        "data": orders
+    }
 
 
-):
-    pass
 
 @router.get("/getorder/{order_id}", response_model=responseorder)
-def get_order():
-    pass
+def get_order(session: SessionDep, order_id: int):
+    order = get_order_room(session, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Cannot find order")
+    return {
+        "msg": "Get order successfully",
+        "data": order
+    }
 
-
+    
 @router.get("/getallCancel", response_model=responseorder)
-def get_all_cancel():
-    pass
+def get_all_cancel(session: SessionDep, current_user: CurrentUser):
+    user = current_user
+    cancels =get_cancel_room_by_user_id(session, user.id)
+    if not cancels:
+        raise HTTPException(status_code=404, detail="Cannot find order")
+    return {
+        "msg": "Get all cancel successfully",
+        "data": cancels
+    }
 
 
 @router.get("/getallUsed", response_model=responseorder)
-def get_all_used():
-    pass
+def get_all_used(session: SessionDep, current_user: CurrentUser):
+    user = current_user
+    used = get_used_room_by_user_id(session, user.id)
+    if not used:
+        raise HTTPException(status_code=404, detail="Cannot find any room has been used")
+    return {
+        "msg": "Get all used successfully",
+        "data": used
+    }
+
+@router.get("/getcancel/{order_id}", response_model=responseorder)
+def get_cancel(session: SessionDep, order_id: int):
+    cancel = get_cancel_room_by_order_id(session, order_id)
+    if not cancel:
+        raise HTTPException(status_code=404, detail="Cannot find cancel")
+    return {
+        "msg": "Get cancel successfully",
+        "data": cancel
+    }
+@router.get("/getused/{order_id}", response_model=responseorder)
+def get_used(session: SessionDep, order_id: int):
+    used = get_used_room_by_order_id(session, order_id)
+    if not used:
+        raise HTTPException(status_code=404, detail="Cannot find used")
+    return {
+        "msg": "Get used successfully",
+        "data": used
+    }

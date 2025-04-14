@@ -506,14 +506,6 @@ def delete_room_device(session: Session, room_id: int | None = None, room_name: 
     return True
 # --- Room ---
 
-def check_library(session: Session, room_id: int) -> bool:
-    if not room_id:
-        raise HTTPException(status_code=400, detail="Room ID is required")
-    room = session.get(Room, room_id)
-    type_id = room.type_id
-    type= session.get(RoomType, type_id)
-    return type.type_name =="Library"
-
 def create_room(
     session: Session,
     room_name: str,
@@ -705,9 +697,12 @@ def check_lib_available(session: Session, room_id: int) -> bool:
         raise HTTPException(status_code=400, detail="Room ID is required")
     room = session.get(Room, room_id)
     type_id = room.type_id
-    type= session.get(RoomType, type_id)
     
-    return type.type_name =="Library" and room.quantity <room.max_quantity
+    type= session.get(RoomType, type_id)
+    if type.type_name != "Library":
+        raise HTTPException(status_code=400, detail="Room is not a library")
+    
+    return  room.quantity <room.max_quantity
 
 
 def filter_rooms(

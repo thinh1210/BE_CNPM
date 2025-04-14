@@ -20,6 +20,7 @@ class User(SQLModel, table=True, extend_existing=True):
     used_rooms: List["UsedRoom"] = Relationship(back_populates="user")
     cancellations: List["CancelRoom"] = Relationship(back_populates="user")
     reports: List["Report"] = Relationship(back_populates="user")
+    notifications: List["Notification"] = Relationship(back_populates="user")
 
 # ======================= 2️⃣ Branch =======================
 class Branch(SQLModel, table=True):

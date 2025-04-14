@@ -776,6 +776,27 @@ def get_cancel_room_by_order_id(session: Session, order_id: int) -> CancelRoom:
         raise HTTPException(status_code=404, detail="CancelRoom not found")
     return cancel_room
 
+def get_cancel_room_by_user_id(session: Session, user_id: int) -> List[CancelRoom]:
+    """
+    Retrieve all CancelRoom entries for a specific user.
+    
+    Args:
+        session (Session): The database session.
+        user_id (int): The ID of the user.
+    
+    Returns:
+        List[CancelRoom]: A list of CancelRoom objects associated with the user.
+    
+    Raises:
+        HTTPException: If no CancelRooms are found for the user.
+    """
+    if not user_id:
+        raise HTTPException(status_code=400, detail="User ID is required")
+    cancel_rooms = session.exec(select(CancelRoom).where(CancelRoom.user_id == user_id)).all()
+    if not cancel_rooms:
+        raise HTTPException(status_code=404, detail="No CancelRooms found for this user")
+    return cancel_rooms
+
 def check_order_cancel(session: Session, order_id: int) -> bool:
     """
     Check if an OrderRoom has been canceled.
@@ -795,6 +816,10 @@ def check_order_cancel(session: Session, order_id: int) -> bool:
         raise HTTPException(status_code=404, detail="OrderRoom not found")
     
     return order_room.cancel is not None
+
+
+
+
 # --- UsedRoom ---
 
 def create_used_room(
@@ -983,7 +1008,7 @@ def get_used_room_by_order_id(session: Session, order_id: int) -> UsedRoom:
         raise HTTPException(status_code=404, detail="UsedRoom not found")
     return used_room
 
-def get_cancel_room_by_user_id(session: Session, user_id: int) -> List[UsedRoom]:
+def get_used_room_by_user_id(session: Session, user_id: int) -> List[UsedRoom]:
     """
     Retrieve all UsedRoom entries for a specific user.
     
