@@ -42,11 +42,11 @@ class Token(BaseModel):
     access_token: str
 
 class UserOut_json(BaseModel):
-    message: str
+    msg: str
     data: UserOut | None = None
 
 class Token_json(BaseModel):
-    message: str
+    msg: str
     data: None | dict = None
     access_token: None | str = None
 
