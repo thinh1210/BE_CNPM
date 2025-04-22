@@ -27,6 +27,7 @@ class Branch(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     branch_name: str
     buildings: List["Building"] = Relationship(back_populates="branch")
+    rooms: List["Room"] = Relationship(back_populates="branch")  # Thêm quan hệ với Room
 
 # ======================= 3️⃣ Building =======================
 class Building(SQLModel, table=True):
@@ -43,7 +44,6 @@ class RoomType(SQLModel, table=True):
     type_name: str
     max_capacity: int | None
 
-
     rooms: List["Room"] = Relationship(back_populates="room_type")
 
 # ======================= 5️⃣ Room (Thông tin cơ bản) =======================
@@ -57,7 +57,7 @@ class Room(SQLModel, table=True):
     quantity: int | None
     active: bool = True
 
-    branch: Optional[Branch] = Relationship()
+    branch: Optional[Branch] = Relationship(back_populates="rooms")  # Sửa: Chỉnh back_populates
     building: Optional[Building] = Relationship(back_populates="rooms")
     room_type: Optional[RoomType] = Relationship(back_populates="rooms")
     orders: List["OrderRoom"] = Relationship(back_populates="room")
@@ -109,7 +109,7 @@ class CancelRoom(SQLModel, table=True):
 # ======================= 9️⃣ UsedRoom =======================
 class UsedRoom(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    order_id: int = Field(foreign_key="orderroom.id", ondelete="CASCADE")
+    order_id: int | None = Field(default=None, foreign_key="orderroom.id", ondelete="CASCADE")
     user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
     room_id: int = Field(foreign_key="room.id", ondelete="CASCADE")
 
@@ -139,6 +139,7 @@ class Report(SQLModel, table=True):
     used_room: Optional[UsedRoom] = Relationship(back_populates="report")
     user: Optional[User] = Relationship(back_populates="reports")
 
+# ======================= 11️⃣ Notification =======================
 class Notification(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
