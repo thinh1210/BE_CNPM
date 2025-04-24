@@ -42,7 +42,7 @@ def login(data: UserIn, session: SessionDep):
         )
 
     return {
-        "message": "login successfully",
+        "msg": "login successfully",
         "access_token": access_token
     }
 
@@ -60,7 +60,7 @@ def register(data: Register_In, session: SessionDep):
         raise HTTPException(status_code=400, detail="register failed")
     
     return {
-        "message": "Register successfully",
+        "msg": "Register successfully",
         "data": None
     }
 
@@ -85,6 +85,6 @@ def register_admin(data: AdminIn , session: SessionDep):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     
     return {
-        "message": "Register successfully",
+        "msg": "Register successfully",
         "data": None
     }

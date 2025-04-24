@@ -330,6 +330,24 @@ def delete_room_type(session: Session, type_id: int|None, room_type: str|None):
     session.delete(room_type)
     session.commit()
 
+def get_all_rt(session: Session) -> List[RoomType]:
+    """
+    Retrieve all RoomTypes from the database.
+    
+    Args:
+        session (Session): The database session.
+    
+    Returns:
+        List[RoomType]: A list of all RoomType objects.
+    
+    Raises:
+        HTTPException: If no RoomTypes are found.
+    """
+    room_types = session.exec(select(RoomType)).all()
+    if not room_types:
+        raise HTTPException(status_code=404, detail="No RoomTypes found")
+    return room_types
+
 # --- RoomDevice ---
 def create_room_device(session: Session,
                        room_id: int,
@@ -533,7 +551,7 @@ def create_room(
     """
     if not room_name or not branch_id or not building_id or not type_id:
         raise HTTPException(status_code=400, detail="Room name, Branch ID, Building ID, and Type ID are required")
-    exist_room = session.exec(select(Room).where(Room.room_name == room_name)).first()
+    exist_room = session.exec(select(Room).where(Room.no_room == room_name)).first()
     if exist_room:
         raise HTTPException(status_code=400, detail="Room already exists")
     if not session.get(Branch, branch_id):
@@ -597,6 +615,7 @@ def update_room(
     building_id: Optional[int] = None,
     type_id: Optional[int] = None,
     capacity: Optional[int] = None,
+    quantity: Optional[int] = 0,
 ) -> Room:
     """
     Update an existing Room's attributes.
@@ -630,7 +649,10 @@ def update_room(
     if type_id:
         room.type_id = type_id
     if capacity is not None:
-        room.capacity = capacity
+        room.max_quantity = capacity
+    
+    room.quantity = quantity 
+
     session.commit()
     session.refresh(room)
     return room
@@ -708,11 +730,11 @@ def check_lib_available(session: Session, room_id: int) -> bool:
 def filter_rooms(
     session: Session,
     branch_id: Optional[int] = None,
-    branch_name: Optional[str] = None,
+
     building_id: Optional[int] = None,
-    building_name: Optional[str] = None,
+
     type_id: Optional[int] = None,
-    type_name: Optional[str] = None,
+
     page: int = 1,
     limit: int = 0
 ) -> List[Room]:
@@ -737,36 +759,30 @@ def filter_rooms(
     Raises:
         HTTPException: If no rooms match the filters or related entities are not found.
     """
+    print(f"Parameters: branch_id={branch_id}, building_id={building_id}, type_id={type_id}, page={page}, limit={limit}")
+    
     query = select(Room)
     if branch_id:
         query = query.where(Room.branch_id == branch_id)
-    if branch_name:
-        branch = session.exec(select(Branch).where(Branch.branch_name == branch_name)).first()
-        if not branch:
-            raise HTTPException(status_code=404, detail="Branch not found")
-        query = query.where(Room.branch_id == branch.id)
     if building_id:
         query = query.where(Room.building_id == building_id)
-    if building_name:
-        building = session.exec(select(Building).where(Building.building_name == building_name)).first()
-        if not building:
-            raise HTTPException(status_code=404, detail="Building not found")
-        query = query.where(Room.building_id == building.id)
     if type_id:
         query = query.where(Room.type_id == type_id)
-    if type_name:
-        room_type = session.exec(select(RoomType).where(RoomType.type_name == type_name)).first()
-        if not room_type:
-            raise HTTPException(status_code=404, detail="RoomType not found")
-        query = query.where(Room.type_id == room_type.id)
     
     query = query.where(Room.active == True)  # Only active rooms
-
+    
+    # Log the query for debugging
+    print(f"Query: {str(query)}")
+    
     if limit == 0:
         rooms = session.exec(query).all()
     else:
         offset = (page - 1) * limit
         rooms = session.exec(query.offset(offset).limit(limit)).all()
+    
+    print(f"Found {len(rooms)} rooms")
+    
     if not rooms:
         raise HTTPException(status_code=404, detail="No rooms found with the given filters")
+    
     return rooms

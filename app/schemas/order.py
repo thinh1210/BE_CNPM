@@ -27,6 +27,17 @@ class CheckIn2(BaseModel):
 class CheckOut2(BaseModel):
     order_id: int
 
+class Report(BaseModel):
+    room_id: int
+    led: bool = True,
+    air_conditioner: bool = True,
+    socket: bool =True,
+    projector: bool = True,
+    interactive_display: bool = True,
+    online_meeting_devices: bool = True,
+    description: str | None = "Short description of the problem"
+
+
 class changetime(BaseModel):
     order_id: int
     date: int

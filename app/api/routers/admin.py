@@ -1,4 +1,5 @@
 from fastapi import APIRouter,Query, Depends, HTTPException, status
+from math import ceil
 from sqlmodel import Session
 from app.schemas.admin import getUser
 from app.schemas.user import User_Short
@@ -13,7 +14,7 @@ from app.api.dependencies import SessionDep
 from app.model import Room, Branch, Building, RoomType
 from app.crud.crud_room import create_branch, get_branch, update_branch, delete_branch, get_all_branches
 from app.crud.crud_room import create_building, get_building, update_building, delete_building, get_buildings_by_branch
-from app.crud.crud_room import create_room_type, get_room_type, delete_room_type
+from app.crud.crud_room import create_room_type, get_room_type,get_all_rt, delete_room_type
 from app.crud.crud_room import create_room, get_room, update_room, delete_room, delete_room_device,filter_rooms
 from app.crud.crud_room import create_room_device, get_room_device, update_room_device, delete_room_device
 #from app.crud.crud_room import create_branch, create_building, create_room_type, create_room, 
@@ -79,14 +80,7 @@ def admin_change_user_status(username: str, isActive: bool, session: SessionDep)
         raise HTTPException(status_code=404, detail="Have something wrong")
     return{
         "msg": "Change user status successfully",
-        "data": User_Short(
-            username=user.username,
-            MSSV=user.MSSV,
-            lastname=user.lastname,
-            firstname=user.firstname,
-            email=user.email,
-            isActive=user.isActive
-        )
+        "data": user
     }
 
 
@@ -108,7 +102,6 @@ def create_branch_data(data: Branch_In, session: SessionDep):
         "msg": "Create branch successfully",
         "data": None
     }
-
 
 @router.get("/all_branch", response_model=reponse)
 def get_all_branch_data(session: SessionDep):
@@ -206,22 +199,22 @@ def get_all_building_data(session: SessionDep, branch_id: int):
         "data": buildings
     }
 
+# @router.get("/all_building2", response_model=reponse)
+# def get_all_building_data_by_branch_name(session: SessionDep, branch_name: str):
+#     '''
+#     Get all buildings by branch name.
 
-@router.get("/all_building2", response_model=reponse)
-def get_all_building_data_by_branch_name(session: SessionDep, branch_name: str):
-    '''
-    Get all buildings by branch name.
+#     Args:
+#         branch_name: Name of the branch to filter buildings.
+#     '''
+#     buildings = get_buildings_by_branch(session, None, branch_name)
+#     if not buildings:
+#         raise HTTPException(status_code=404, detail="No building found")
+#     return {
+#         "msg": "Get all buildings successfully",
+#         "data": buildings
+#     }
 
-    Args:
-        branch_name: Name of the branch to filter buildings.
-    '''
-    buildings = get_buildings_by_branch(session, None, branch_name)
-    if not buildings:
-        raise HTTPException(status_code=404, detail="No building found")
-    return {
-        "msg": "Get all buildings successfully",
-        "data": buildings
-    }
 
 @router.put("/building/{building_id}", response_model=reponse)
 def update_building(building_id: int, data: Buiding_In, session: SessionDep):
@@ -272,13 +265,14 @@ def creat_room_type(data: TypeRoom_In, session: SessionDep):
         "msg": "Create room type successfully",
         "data": None
     }
+
 @router.get("/all_room_type", response_model=reponse)
 def get_all_room_type(session: SessionDep):
     '''
     Get all room types.
 
     '''
-    room_types = get_room_type(session)
+    room_types = get_all_rt(session)
     if not room_types:
         raise HTTPException(status_code=404, detail="No room type found")
     return {
@@ -329,15 +323,21 @@ def create_room_and_device(data: Room_with_device_In, session: SessionDep):
     Args:
         data: Room data to create.
     '''
-    room = create_room(session, data.name_room, data.id_branch, data.id_building, data.id_type_room, data.max_quantity, data.quantity)
-    device = create_room_device(session, room.id, data.led, data.projector, data.air_conditioner, data.socket, data.interactive_display, data.online_meeting_devices)
-    if not device:
-        raise HTTPException(status_code=400, detail="Cannot create room device")
+    room = create_room(session,
+                    data.name_room, 
+                    branch_id=data.id_branch, 
+                    building_id=data.id_building, 
+                    type_id=data.id_type_room, 
+                    capacity=data.max_quantity)
     if not room:
         raise HTTPException(status_code=400, detail="Cannot create room")
     
+    device = create_room_device(session, room.id, data.led, data.projector, data.air_conditioner, data.socket, data.interactive_display, data.online_meeting_devices)
+    if not device:
+        raise HTTPException(status_code=400, detail="Cannot create room device")
+    
     # Create room device
-    room_device = create_room_device(session, room.id, data.led, data.projector, data.air_conditioner, data.socket, data.interactive_display, data.online_meeting_devices)
+    # room_device = create_room_device(session, room.id, data.led, data.projector, data.air_conditioner, data.socket, data.interactive_display, data.online_meeting_devices)
     
     return {
         "msg": "Create room successfully",
@@ -345,21 +345,44 @@ def create_room_and_device(data: Room_with_device_In, session: SessionDep):
     }
 
 @router.get("/all_room", response_model=reponse)
-def get_all_room_data(session: SessionDep, branch_id: int = Query(default=None), building_id: int = Query(default=None), room_type_id: int = Query(default=None)):
+def get_all_room_data(session: SessionDep,
+                     branch_id: int = Query(default=None),
+                     building_id: int = Query(default=None), 
+                     room_type_id: int = Query(default=None),
+                     page: int = Query(default=1, ge=1, description="Page number (starting from 1)"),  # Thêm query param page
+                     limit: int = Query(default=10, ge=0, le=100, description="Number of users per page")  # Thêm limit nếu cần
+                     ):
     '''
     Get all rooms with optional filters.
-
+    If want to get all rooms, limit =0
     Args:
         branch_id: ID of the branch to filter rooms (optional).
         building_id: ID of the building to filter rooms (optional).
         room_type_id: ID of the room type to filter rooms (optional).
     '''
-    rooms = get_room(session, branch_id, building_id, room_type_id)
-    if not rooms:
-        raise HTTPException(status_code=404, detail="No room found")
+    # print("branch_id", branch_id)
+    # print("building_id", building_id)
+    
+    rooms =filter_rooms(session, 
+                        branch_id=  branch_id,
+                        building_id= building_id,
+                        type_id= room_type_id,
+                        page=page,
+                        limit=limit
+                        )
+    # rooms = get_room(session, branch_id, building_id, room_type_id)
+
+
+    
     return {
         "msg": "Get all rooms successfully",
-        "data": rooms
+        "data": rooms,
+        "metadata": {
+            "page": page,
+            "perpage": limit,
+            "total": len(rooms),
+            "total_page": ceil(len(rooms) / limit) if limit > 0 else 1
+        }
     }
 
 @router.get("/room1/{room_id}", response_model=reponse)
@@ -378,21 +401,21 @@ def get_room_data(room_id: int, session: SessionDep):
         "data": room
     }
 
-@router.get("/room2/{room_name}", response_model=reponse)
-def get_room_data_by_name(room_name: str, session: SessionDep):
-    '''
-    Get a room by name.
+# @router.get("/room2/{room_name}", response_model=reponse)
+# def get_room_data_by_name(room_name: str, session: SessionDep):
+#     '''
+#     Get a room by name.
 
-    Args:
-        room_name: Name of the room to retrieve.
-    '''
-    room = get_room(session, None, room_name)
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-    return {
-        "msg": "Get room successfully",
-        "data": room
-    }
+#     Args:
+#         room_name: Name of the room to retrieve.
+#     '''
+#     room = get_room(session, None, room_name)
+#     if not room:
+#         raise HTTPException(status_code=404, detail="Room not found")
+#     return {
+#         "msg": "Get room successfully",
+#         "data": room
+#     }
 
 @router.put("/room/{room_id}", response_model=reponse)
 def update_room_data(room_id: int, data: RoomIn, session: SessionDep):
@@ -410,6 +433,7 @@ def update_room_data(room_id: int, data: RoomIn, session: SessionDep):
         "msg": "Update room successfully",
         "data": room
     }
+
 @router.put("/room_device/{room_id}", response_model=reponse)
 def update_room_device_data(room_id: int, data: RoomDevice, session: SessionDep):
     '''

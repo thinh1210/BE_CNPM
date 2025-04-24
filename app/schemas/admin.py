@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr
 from app.schemas.user import Register_In, User_Short
 from typing import Optional,List
 from app.schemas.metadata import Metadata
+from app.model import User
 class AdminIn(Register_In):
     key: None |str= None
 
@@ -12,4 +13,4 @@ class getUser(BaseModel):
 
 class changeUserStatus(BaseModel):
     msg: str
-    data: None | User_Short = None
+    data: None | User

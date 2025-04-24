@@ -40,7 +40,7 @@ def create_order_room(
     if not room:
         raise HTTPException(status_code=404, detail=f"Room with ID {room_id} not found")
     
-    if check_library(room_id=room_id):
+    if check_library(session=session,room_id=room_id):
         raise HTTPException(status_code=400, detail="Room is a library room, You cannot order, you just order when you check in or check out")
     # Kiểm tra User
     user = session.get(User, user_id)
@@ -579,7 +579,7 @@ def checkin_library(session: Session, room_id:int) -> bool:
     if not room:
         raise HTTPException(status_code=404, detail=f"Room with ID {room_id} not found")
     
-    if not check_library(room):
+    if not check_library(session=session, room_id=room_id):
         raise HTTPException(status_code=400, detail="Room is not a library room")
     
     if room.quantity > room.max_quantity:
@@ -587,6 +587,9 @@ def checkin_library(session: Session, room_id:int) -> bool:
     
     update_room(session, room_id, quantity=room.quantity+1)
     return True
+
+
+
 def checkout_library(session: Session, room_id:int) -> bool:
     if not room_id:
         raise HTTPException(status_code=400, detail="Room ID is required")
@@ -594,7 +597,7 @@ def checkout_library(session: Session, room_id:int) -> bool:
     if not room:
         raise HTTPException(status_code=404, detail=f"Room with ID {room_id} not found")
     
-    if not check_library(room):
+    if not check_library(session=session, room_id=room_id):
         raise HTTPException(status_code=400, detail="Room is not a library room")
     
     if room.quantity <= 0:
@@ -824,7 +827,7 @@ def check_order_cancel(session: Session, order_id: int) -> bool:
 
 def create_used_room(
     session: Session,
-    order_id: int,
+    order_id: int|None,
     user_id: int,
     room_id: int,
     date: date,
@@ -849,13 +852,17 @@ def create_used_room(
     Raises:
         HTTPException: If the OrderRoom, User, or Room is not found, or required fields are missing.
     """
-    if not order_id or not user_id or not room_id or not date or not checkin or not checkout:
+    if order_id is None:
+        if not check_library(session=session, room_id=room_id):
+            raise HTTPException(status_code=400, detail="Order ID is required for non-library rooms")
+    else:# Kiểm tra OrderRoom
+        order_room = session.get(OrderRoom, order_id)
+        if not order_room:
+            raise HTTPException(status_code=404, detail=f"OrderRoom with ID {order_id} not found")
+
+    if  not user_id or not room_id or not date or not checkin or not checkout:
         raise HTTPException(status_code=400, detail="All fields are required")
 
-    # Kiểm tra OrderRoom
-    order_room = session.get(OrderRoom, order_id)
-    if not order_room:
-        raise HTTPException(status_code=404, detail=f"OrderRoom with ID {order_id} not found")
 
     # Kiểm tra User
     user = session.get(User, user_id)
@@ -957,7 +964,10 @@ def update_used_room(
         used_room.checkin = checkin
     if checkout is not None:# Default checkout time
         used_room.checkout = checkout
-    if checkin >= checkout:
+
+    checkout_date= datetime.combine(used_room.date, used_room.checkout)
+    checkin_date= datetime.combine(used_room.date, used_room.checkin)
+    if checkout_date < checkin_date:
         raise HTTPException(status_code=400, detail="Check-in time must be before check-out time")
     
     session.add(used_room)
@@ -1044,10 +1054,10 @@ def get_used_room_being_used_by_user_id(session: Session, user_id: int) ->UsedRo
 
     used_rooms = session.exec(select(UsedRoom)
                               .where(UsedRoom.user_id == user_id)
-                              .where(UsedRoom.checkout == time(23, 59, 59))).all()
+                              .where(UsedRoom.checkout == time(23, 59, 59))).first()
     if not used_rooms:
         raise HTTPException(status_code=404, detail="No UsedRooms found for this user")
-    return used_rooms   
+    return used_rooms
     
 def check_using_room_by_used_room_id(session: Session, used_room_id: int) -> bool:
     """
