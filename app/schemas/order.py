@@ -54,4 +54,4 @@ class OrderRoomOut(BaseModel):
 
 class responseorder(BaseModel):
     msg: str
-    data: OrderRoomOut|Room|OrderRoom|CancelRoom|UsedRoom|List[Room]|List[OrderRoom]|List[CancelRoom]|List[UsedRoom]|List[OrderRoomOut]|None = None
+    data: User|Report|OrderRoomOut|Room|OrderRoom|CancelRoom|UsedRoom|List[Report]|List[Room]|List[OrderRoom]|List[CancelRoom]|List[UsedRoom]|List[OrderRoomOut]|None = None

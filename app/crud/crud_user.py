@@ -5,6 +5,7 @@ from typing import List, Tuple
 from app.model import User
 from app.schemas.user import UserIn, Register_In
 from app.schemas.metadata import Metadata
+from pydantic import EmailStr
 from app.cores.security import get_password_hash, verify_password
 import requests
 import base64
@@ -150,27 +151,41 @@ def register_user(session: Session, user_create: Register_In, isAdmin: bool =Fal
     session.refresh(db_user)
     return db_user
 
-def change_user_pasword(session: Session, username: str, password: str) -> User:
+def change_user_pasword(session: Session, username: str, new_password: str, old_password:str) -> User:
     db_user = get_user_by_username(session, username)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    db_user.password = get_password_hash(password)
+    if not verify_password(old_password, db_user.password):
+        raise HTTPException(status_code=400, detail="Old password is incorrect")
+    if verify_password(new_password, db_user.password):
+        raise HTTPException(status_code=400, detail="New password cannot be the same as old password")
+   
+    db_user.password = get_password_hash(new_password)
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
     return db_user
 
 
-def change_user_info(session: Session, username: str, user_create: Register_In) -> User:
+def change_user_info(session: Session, username: str, 
+                     lastname: str,
+                     firstname: str,
+                     email: EmailStr) -> User:
+    print("username: ", username)
+    
     db_user = get_user_by_username(session, username)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    db_user.lastname = user_create.lastname
-    db_user.firstname = user_create.firstname
-    db_user.email = user_create.email
+    if lastname is not None:
+        db_user.lastname = lastname
+    if firstname is not None:
+        db_user.firstname = firstname
+    if email is not None:
+        db_user.email = email
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
+    print("call db ok")
     return db_user
 
 def change_user_status(session: Session, username: str, isActive: bool) -> List[User]:

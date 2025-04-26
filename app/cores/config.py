@@ -13,6 +13,8 @@ import os
 # # Tạo URL kết nối MySQL
 # DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
+# Chuỗi kết nối không chứa ssl_mode, sẽ cấu hình SSL qua connect_args
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 SECRET_KEY: str = "your-secret-key"
 API_V1_STR: str = "/api/v1"

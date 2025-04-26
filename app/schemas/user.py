@@ -50,3 +50,11 @@ class Token_json(BaseModel):
     data: None | dict = None
     access_token: None | str = None
 
+class UpdateUser(BaseModel):
+    lastname: str | None = None
+    firstname: str | None = None
+    email: EmailStr | None = None
+
+class Update_password(BaseModel):
+    old_password: str
+    new_password: str

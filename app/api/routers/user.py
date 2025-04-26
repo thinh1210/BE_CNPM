@@ -4,7 +4,7 @@ from math import ceil
 
 from app.schemas.user import  UserOut_json 
 from app.api.dependencies import SessionDep,get_current_user,CurrentUser,checkyear,checkmonth,checkday,checkhours
-from app.schemas.user import  UserOut_json
+from app.schemas.user import  UserOut_json,Update_password, UpdateUser
 from app.schemas.order import OrderIn, CancelIn,  responseorder, changetime,CheckIn1,CheckOut1,CheckIn2,CheckOut2,Report
 from app.schemas.room import reponse
 from app.model import User, OrderRoom, CancelRoom, UsedRoom, Room, Branch, Building, RoomType
@@ -35,7 +35,29 @@ def read_users_me(current_user:CurrentUser ):
         "data": current_user
     }
 
+@router.put("/update_infor", response_model=responseorder)
+def update_user_info(data:UpdateUser , current_user: CurrentUser, session: SessionDep):
+    print(    "data", data.lastname, data.firstname, data.email)
+    user= current_user
+    db_user = change_user_info(session,user.username, data.lastname, data.firstname, data.email)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Cannot update user")
+    return {
+        "msg": "Update user successfully",
+        "data": db_user
+    }
+# @router.update("/user", response_model=responseorder)
+# def update_user_info(data: , current_user: CurrentUser, session: SessionDep):
 
+@router.put("/user/password", response_model=responseorder)
+def update_user_password(data: Update_password, current_user: CurrentUser, session: SessionDep):
+    db_user = change_user_pasword(session, current_user.username, data.new_password, data.old_password)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Cannot update password")
+    return {
+        "msg": "Update password successfully",
+        "data": db_user
+    }
 #---- search room ----
 @router.get("/all_room", response_model=reponse)
 def get_all_room_data(session: SessionDep,

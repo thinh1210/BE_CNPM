@@ -63,6 +63,7 @@ class Room(SQLModel, table=True):
     orders: List["OrderRoom"] = Relationship(back_populates="room")
     used_rooms: List["UsedRoom"] = Relationship(back_populates="room")
     devices: Optional["RoomDevice"] = Relationship(back_populates="room")  # Quan hệ 1-1 với RoomDevice
+    reports: List["Report"] = Relationship(back_populates="room")
 
 # ======================= 6️⃣ RoomDevice (Thông tin thiết bị) =======================
 class RoomDevice(SQLModel, table=True):
@@ -127,6 +128,7 @@ class Report(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     used_room_id: int = Field(foreign_key="usedroom.id", ondelete="CASCADE")
     user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
+    room_id: int = Field(foreign_key="room.id", ondelete="CASCADE")
 
     led: bool = False
     air_conditioner: bool = False
@@ -138,6 +140,7 @@ class Report(SQLModel, table=True):
 
     used_room: Optional[UsedRoom] = Relationship(back_populates="report")
     user: Optional[User] = Relationship(back_populates="reports")
+    room: Optional[Room] = Relationship(back_populates="reports")
 
 # ======================= 11️⃣ Notification =======================
 class Notification(SQLModel, table=True):
